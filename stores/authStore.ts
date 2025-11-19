@@ -1,13 +1,13 @@
 // src/stores/authStore.ts
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { auth, db } from "../firebase";
-import {
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  signOut,
-} from "firebase/auth";
-import { doc, setDoc, getDoc, updateDoc } from "firebase/firestore";
+// import { auth, db } from "../firebase";
+// import {
+//   createUserWithEmailAndPassword,
+//   signInWithEmailAndPassword,
+//   signOut,
+// } from "firebase/auth";
+// import { doc, setDoc, getDoc, updateDoc } from "firebase/firestore";
 
 // User preferences
 interface Preferences {
@@ -52,18 +52,15 @@ export const useAuthStore = create<AuthStore>()(
       user: null,
       isLoading: false,
 
-      // Register new user
+      // Register new user (mock implementation)
       register: async ({ name, email, password, disabilityType }) => {
         set({ isLoading: true });
         try {
-          const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-          const user = userCredential.user;
-
-          // Build profile
-          const userProfile: UserProfile = {
-            uid: user.uid,
+          // Mock user creation
+          const mockUser: UserProfile = {
+            uid: 'mock-' + Date.now(),
             name,
-            email: user.email,
+            email,
             disabilityType,
             onboardingCompleted: false,
             preferences: {
@@ -74,10 +71,7 @@ export const useAuthStore = create<AuthStore>()(
             },
           };
 
-          // Save to Firestore
-          await setDoc(doc(db, "users", user.uid), userProfile);
-
-          set({ user: userProfile });
+          set({ user: mockUser });
         } catch (error) {
           console.error("Register error:", error);
           throw error;
@@ -86,29 +80,20 @@ export const useAuthStore = create<AuthStore>()(
         }
       },
 
-      // Login existing user
+      // Login existing user (mock implementation)
       login: async (email, password) => {
         set({ isLoading: true });
         try {
-          const userCredential = await signInWithEmailAndPassword(auth, email, password);
-          const user = userCredential.user;
-
-          const docRef = doc(db, "users", user.uid);
-          const docSnap = await getDoc(docRef);
-
-          if (docSnap.exists()) {
-            set({ user: docSnap.data() as UserProfile });
-          } else {
-            // fallback
-            set({
-              user: {
-                uid: user.uid,
-                email: user.email,
-                onboardingCompleted: false,
-                preferences: { tts: false, stt: false, contrastMode: false, dyslexiaFont: false },
-              },
-            });
-          }
+          // Mock login - accept any credentials
+          const mockUser: UserProfile = {
+            uid: 'mock-user-123',
+            name: 'Demo User',
+            email,
+            onboardingCompleted: true,
+            preferences: { tts: false, stt: false, contrastMode: false, dyslexiaFont: false },
+          };
+          
+          set({ user: mockUser });
         } catch (error) {
           console.error("Login error:", error);
           throw error;
@@ -117,35 +102,24 @@ export const useAuthStore = create<AuthStore>()(
         }
       },
 
-      // Logout
+      // Logout (mock implementation)
       logout: async () => {
-        await signOut(auth);
         set({ user: null });
       },
 
-      // Fetch user profile (useful after updates)
+      // Fetch user profile (mock implementation)
       fetchUserProfile: async (uid) => {
-        const docRef = doc(db, "users", uid);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          set({ user: docSnap.data() as UserProfile });
-        }
+        // Mock - do nothing
+        console.log('Mock fetchUserProfile called for uid:', uid);
       },
 
-      // Update user (both Zustand + Firestore)
+      // Update user (mock implementation)
       updateUser: async (data: Partial<UserProfile>) => {
         const { user } = get();
         if (!user) return;
 
         const updatedUser = { ...user, ...data };
         set({ user: updatedUser });
-
-        try {
-          const userRef = doc(db, "users", user.uid);
-          await updateDoc(userRef, data);
-        } catch (err) {
-          console.error("Error updating user:", err);
-        }
       },
     }),
     { name: "auth-storage" } // persist in localStorage
