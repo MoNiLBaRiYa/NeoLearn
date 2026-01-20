@@ -21,9 +21,25 @@ import CommunityPage from './pages/CommunityPage';
 import EditProfilePage from './pages/EditProfilePage';
 import AIAssistantPage from './pages/AIAssistantPage';
 import ProtectedRoute from './components/ProtectedRoute';
+import AccessibilityToolbar from './components/AccessibilityToolbar';
 
 function App() {
-  const { isDyslexicFont, isHighContrast, isReducedMotion } = useAccessibilityStore();
+  const { 
+    isDyslexicFont, 
+    isHighContrast, 
+    isReducedMotion,
+    isScreenReaderMode,
+    isKeyboardOnlyMode,
+    isFocusHighlight,
+    isLargeClickTargets,
+    isTextSpacing,
+    isCursorHighlight,
+    isLineHeight,
+    isLetterSpacing,
+    isWordSpacing,
+    isSimplifiedUI,
+    colorBlindType
+  } = useAccessibilityStore();
   const { user } = useAuthStore();
 
   React.useEffect(() => {
@@ -32,13 +48,44 @@ function App() {
     if (isDyslexicFont) classes.push('dyslexic-font');
     if (isHighContrast) classes.push('high-contrast');
     if (isReducedMotion) classes.push('reduced-motion');
+    if (isScreenReaderMode) classes.push('screen-reader-mode');
+    if (isKeyboardOnlyMode) classes.push('keyboard-only-mode');
+    if (isFocusHighlight) classes.push('focus-highlight');
+    if (isLargeClickTargets) classes.push('large-click-targets');
+    if (isTextSpacing) classes.push('text-spacing');
+    if (isCursorHighlight) classes.push('cursor-highlight');
+    if (isLineHeight) classes.push('increased-line-height');
+    if (isLetterSpacing) classes.push('increased-letter-spacing');
+    if (isWordSpacing) classes.push('increased-word-spacing');
+    if (isSimplifiedUI) classes.push('simplified-ui');
+    if (colorBlindType !== 'none') classes.push(`color-blind-${colorBlindType}`);
     
     document.documentElement.className = classes.join(' ');
-  }, [isDyslexicFont, isHighContrast, isReducedMotion]);
+  }, [
+    isDyslexicFont, 
+    isHighContrast, 
+    isReducedMotion,
+    isScreenReaderMode,
+    isKeyboardOnlyMode,
+    isFocusHighlight,
+    isLargeClickTargets,
+    isTextSpacing,
+    isCursorHighlight,
+    isLineHeight,
+    isLetterSpacing,
+    isWordSpacing,
+    isSimplifiedUI,
+    colorBlindType
+  ]);
 
   return (
     <Router>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        {/* Skip to main content link for keyboard users */}
+        <a href="#main-content" className="skip-link">
+          Skip to main content
+        </a>
+        
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
@@ -140,6 +187,10 @@ function App() {
             } 
           />
         </Routes>
+        
+        {/* Accessibility Toolbar - Available on all pages */}
+        <AccessibilityToolbar />
+        
         <Toaster 
           position="top-right"
           toastOptions={{

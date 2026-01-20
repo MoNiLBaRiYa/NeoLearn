@@ -1,0 +1,127 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isValidUser() {
+      return isAuthenticated() && 
+             request.resource.data.keys().hasAll(['email', 'name', 'createdAt']);
+    }
+    
+    // Users collection
+    match /users/{userId} {
+      // Allow read if authenticated and owner
+      allow read: if isOwner(userId);
+      
+      // Allow create if authenticated and valid data
+      allow create: if isAuthenticated() && 
+                      isValidUser() &&
+                      request.auth.uid == userId;
+      
+      // Allow update if owner and not changing critical fields
+      allow update: if isOwner(userId) && 
+                      !request.resource.data.diff(resource.data).affectedKeys().hasAny(['uid', 'email']);
+      
+      // Allow delete if owner
+      allow delete: if isOwner(userId);
+      
+      // User's courses subcollection
+      match /courses/{courseId} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      // User's exams subcollection
+      match /exams/{examId} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      // User's tasks subcollection
+      match /tasks/{taskId} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      // User's notes subcollection
+      match /notes/{noteId} {
+        allow read: if isOwner(userId) || resource.data.isPublic == true;
+        allow write: if isOwner(userId);
+      }
+      
+      // User's achievements subcollection
+      match /achievements/{achievementId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+    
+    // Public notes collection (for community library)
+    match /publicNotes/{noteId} {
+      // Anyone can read public notes
+      allow read: if true;
+      
+      // Only authenticated users can create
+      allow create: if isAuthenticated() && 
+                      request.resource.data.isPublic == true &&
+                      request.resource.data.userId == request.auth.uid;
+      
+      // Only owner can update
+      allow update: if isAuthenticated() && 
+                      resource.data.userId == request.auth.uid;
+      
+      // Only owner can delete
+      allow delete: if isAuthenticated() && 
+                      resource.data.userId == request.auth.uid;
+    }
+    
+    // Community posts
+    match /community/{postId} {
+      // Anyone can read
+      allow read: if true;
+      
+      // Authenticated users can create
+      allow create: if isAuthenticated() && 
+                      request.resource.data.userId == request.auth.uid;
+      
+      // Only owner can update/delete
+      allow update, delete: if isAuthenticated() && 
+                              resource.data.userId == request.auth.uid;
+      
+      // Comments subcollection
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if isAuthenticated();
+        allow update, delete: if isAuthenticated() && 
+                                resource.data.userId == request.auth.uid;
+      }
+    }
+    
+    // Study groups
+    match /studyGroups/{groupId} {
+      // Anyone can read
+      allow read: if true;
+      
+      // Authenticated users can create
+      allow create: if isAuthenticated();
+      
+      // Group members can update
+      allow update: if isAuthenticated() && 
+                      request.auth.uid in resource.data.members;
+      
+      // Only creator can delete
+      allow delete: if isAuthenticated() && 
+                      resource.data.createdBy == request.auth.uid;
+    }
+    
+    // Analytics and stats (read-only for users)
+    match /analytics/{document=**} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Only server can write
+    }
+  }
+}

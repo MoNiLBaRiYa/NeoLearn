@@ -1,0 +1,105 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isValidFileSize(maxSizeMB) {
+      return request.resource.size < maxSizeMB * 1024 * 1024;
+    }
+    
+    function isValidImageType() {
+      return request.resource.contentType.matches('image/.*');
+    }
+    
+    function isValidDocumentType() {
+      return request.resource.contentType.matches('application/pdf') ||
+             request.resource.contentType.matches('application/msword') ||
+             request.resource.contentType.matches('application/vnd.openxmlformats-officedocument.wordprocessingml.document') ||
+             request.resource.contentType.matches('text/plain');
+    }
+    
+    // User profile pictures
+    match /users/{userId}/profile/{fileName} {
+      // Allow read if authenticated
+      allow read: if isAuthenticated();
+      
+      // Allow write if owner, valid image, and under 5MB
+      allow write: if isOwner(userId) && 
+                     isValidImageType() && 
+                     isValidFileSize(5);
+      
+      // Allow delete if owner
+      allow delete: if isOwner(userId);
+    }
+    
+    // User notes/documents
+    match /users/{userId}/notes/{fileName} {
+      // Allow read if owner or if note is public
+      allow read: if isOwner(userId) || 
+                    firestore.get(/databases/(default)/documents/users/$(userId)/notes/$(fileName.split('.')[0])).data.isPublic == true;
+      
+      // Allow write if owner, valid document, and under 50MB
+      allow write: if isOwner(userId) && 
+                     isValidDocumentType() && 
+                     isValidFileSize(50);
+      
+      // Allow delete if owner
+      allow delete: if isOwner(userId);
+    }
+    
+    // Public notes (community library)
+    match /publicNotes/{noteId}/{fileName} {
+      // Anyone can read public notes
+      allow read: if true;
+      
+      // Only authenticated users can upload
+      allow write: if isAuthenticated() && 
+                     isValidDocumentType() && 
+                     isValidFileSize(50);
+      
+      // Only owner can delete
+      allow delete: if isAuthenticated() && 
+                      firestore.get(/databases/(default)/documents/publicNotes/$(noteId)).data.userId == request.auth.uid;
+    }
+    
+    // Community posts media
+    match /community/{postId}/{fileName} {
+      // Anyone can read
+      allow read: if true;
+      
+      // Authenticated users can upload images under 10MB
+      allow write: if isAuthenticated() && 
+                     isValidImageType() && 
+                     isValidFileSize(10);
+      
+      // Only post owner can delete
+      allow delete: if isAuthenticated() && 
+                      firestore.get(/databases/(default)/documents/community/$(postId)).data.userId == request.auth.uid;
+    }
+    
+    // Study group resources
+    match /studyGroups/{groupId}/resources/{fileName} {
+      // Group members can read
+      allow read: if isAuthenticated() && 
+                    request.auth.uid in firestore.get(/databases/(default)/documents/studyGroups/$(groupId)).data.members;
+      
+      // Group members can upload documents under 50MB
+      allow write: if isAuthenticated() && 
+                     request.auth.uid in firestore.get(/databases/(default)/documents/studyGroups/$(groupId)).data.members &&
+                     isValidDocumentType() && 
+                     isValidFileSize(50);
+      
+      // Group members can delete
+      allow delete: if isAuthenticated() && 
+                      request.auth.uid in firestore.get(/databases/(default)/documents/studyGroups/$(groupId)).data.members;
+    }
+  }
+}
